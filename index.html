@@ -140,8 +140,10 @@ function showTab(tab){
   }else if(tab==='short'){
     const shorts=allData.signals.filter(s=>s.bias==='SHORT');
     if(!shorts.length){c.innerHTML=`<div class="empty"><div class="empty-icon">📉</div><div class="empty-title">NO SHORT SIGNALS</div><div style="font-size:12px">Run the trading bot to generate signals</div></div>`;return;}
-    const high=shorts.filter(s=>parseInt(s.confidence)>=65).length;
-    c.innerHTML=`<div class="summary-bar"><div class="summary-stat"><div class="summary-val" style="color:var(--red)">${shorts.length}</div><div class="summary-label">SHORTS</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--amber)">${high}</div><div class="summary-label">HIGH CONF</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--muted)">${shorts.length-high}</div><div class="summary-label">MODERATE</div></div></div><div class="section-header">SHORT SIGNALS</div>${shorts.sort((a,b)=>parseInt(b.confidence)-parseInt(a.confidence)).map(renderCard).join('')}`;
+    const high=shorts.filter(s=>parseInt(s.confidence)>=70).length;
+    const med=shorts.filter(s=>parseInt(s.confidence)>=55&&parseInt(s.confidence)<70).length;
+    const low=shorts.filter(s=>parseInt(s.confidence)<55).length;
+    c.innerHTML=`<div class="summary-bar"><div class="summary-stat"><div class="summary-val" style="color:var(--green)">${high}</div><div class="summary-label">HIGH</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--amber)">${med}</div><div class="summary-label">MODERATE</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--muted)">${low}</div><div class="summary-label">LOW</div></div></div><div class="section-header">SHORT SIGNALS</div>${shorts.sort((a,b)=>parseInt(b.confidence)-parseInt(a.confidence)).map(renderCard).join('')}`;
   }else if(tab==='history'){
     if(!allData.history.length){c.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">NO HISTORY YET</div><div style="font-size:12px">Signals will appear here after the bot runs</div></div>`;return;}
     c.innerHTML=`<div class="section-header">SIGNAL HISTORY</div>`+allData.history.slice().reverse().slice(0,50).map(r=>{
