@@ -14,9 +14,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono','Courier New',
 .header{position:sticky;top:0;z-index:100;background:rgba(8,12,8,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:22px 16px 14px;}
 .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--green);}
 .logo span{color:var(--text);}
-.tabs{display:flex;gap:4px;padding:12px 16px 0;border-bottom:1px solid var(--border);overflow-x:auto;}
-.tab{padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
-.tab.active{color:var(--green);border-bottom-color:var(--green);}
+
 .content{padding:16px;}
 .section-header{font-size:10px;letter-spacing:2px;color:var(--muted);margin:16px 0 8px;}
 .signal-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;}
@@ -68,12 +66,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono','Courier New',
 </head>
 <body>
 <div class="header"><div class="logo">Trade<span>Wise</span></div></div>
-<div class="tabs" id="tabBar">
-  <button class="tab active" onclick="showTab('long')">LONG</button>
-  <button class="tab" onclick="showTab('short')">SHORT</button>
-  <button class="tab" onclick="showTab('history')">HISTORY</button>
-  <button class="tab" onclick="showTab('setup')">SETUP</button>
-</div>
+
 <div class="content" id="mainContent">
   <div class="empty"><div class="empty-icon">📊</div><div class="empty-title">LOADING SIGNALS</div><div style="font-size:12px">Fetching from Google Sheets...</div></div>
 </div>
@@ -130,8 +123,7 @@ function renderCard(s){
 }
 function showTab(tab){
   currentTab=tab;
-  document.querySelectorAll('.tab,.nav-btn').forEach(e=>e.classList.remove('active'));
-  document.querySelector(`.tab[onclick="showTab('${tab}')"]`)?.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'));
   document.querySelector(`.nav-btn[onclick="showTab('${tab}')"]`)?.classList.add('active');
   const c=document.getElementById('mainContent');
   const{sheetId,apiKey}=getCfg();
