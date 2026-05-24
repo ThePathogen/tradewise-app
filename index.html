@@ -86,9 +86,9 @@ async function fetchSheet(tab,range){
 }
 async function loadData(){
   const{sheetId,apiKey}=getCfg();if(!sheetId||!apiKey){showTab('setup');return;}
-  const[sigRows,histRows]=await Promise.all([fetchSheet('Signals','A2:P200'),fetchSheet('History','A2:D500')]);
+  const[sigRows,histRows]=await Promise.all([fetchSheet('Signals','A2:P200'),fetchSheet('Signal Log','A2:N500')]);
   allData.signals=sigRows.map(r=>({instrument:r[0]||'',bias:r[1]||'',estMove:r[2]||'',startPrice:r[3]||'N/A',endPrice:r[4]||'N/A',stopLoss:r[5]||'N/A',takeProfit:r[6]||'N/A',timeframe:r[7]||'',confidence:r[8]||'50%',histConf:r[9]||'',trend:r[10]||'',rsi:r[11]||'',cot:r[12]||'',season:r[13]||'',news:r[14]||'',aiAnalysis:r[15]||''}));
-  allData.history=histRows.map(r=>({date:r[0]||'',instrument:r[1]||'',bias:r[2]||'',result:r[3]||'PENDING'}));
+  allData.history=histRows.map(r=>({date:r[0]||'',instrument:r[1]||'',bias:r[2]||'',result:r[3]||'PENDING',entry:r[4]||'',sl:r[5]||'',tp:r[6]||'',conf:r[7]||''}));
   showTab(currentTab);
 }
 function confColor(c){const n=parseInt(c)||50;return n>=70?'var(--green)':n>=55?'var(--amber)':'var(--red)';}
@@ -148,10 +148,20 @@ function showTab(tab){
     c.innerHTML=`<div class="summary-bar"><div class="summary-stat"><div class="summary-val" style="color:var(--green)">${high}</div><div class="summary-label">HIGH</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--amber)">${med}</div><div class="summary-label">MODERATE</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--muted)">${low}</div><div class="summary-label">LOW</div></div></div><div class="section-header">SHORT SIGNALS</div>${signals.sort((a,b)=>parseInt(b.confidence)-parseInt(a.confidence)).map(renderCard).join('')}`;
   }else if(tab==='history'){
     if(!allData.history.length){c.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">NO HISTORY YET</div><div style="font-size:12px">Signals will appear here after the bot runs</div></div>`;return;}
-    c.innerHTML=`<div class="section-header">SIGNAL HISTORY</div>`+allData.history.slice().reverse().slice(0,50).map(r=>{
+    // Group by date and instrument (not by row)
+    const seen = new Set();
+    const unique = allData.history.slice().reverse().filter(r=>{
+      const key = r.date.split(' ')[0] + r.instrument;
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return r.instrument && r.instrument.length > 1;
+    }).slice(0,50);
+
+    c.innerHTML=`<div class="section-header">SIGNAL HISTORY</div>`+unique.map(r=>{
       const rc=r.result==='CORRECT'?'correct':r.result==='INCORRECT'?'incorrect':'pending';
       const bc=r.bias==='LONG'?'var(--green)':'var(--red)';
-      return`<div class="history-row"><div><div class="history-instrument">${r.instrument}</div><div class="history-date">${r.date} · <span style="color:${bc}">${r.bias}</span></div></div><div class="result-badge ${rc}">${r.result}</div></div>`;
+      const date=r.date.split(' ')[0];
+      return`<div class="history-row"><div><div class="history-instrument">${r.instrument}</div><div class="history-date">${date} · <span style="color:${bc}">${r.bias}</span></div></div><div class="result-badge ${rc}">${r.result}</div></div>`;
     }).join('');
   }
 }
