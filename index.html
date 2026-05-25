@@ -74,6 +74,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono','Courier New',
   <button class="nav-btn active" onclick="showTab('long')"><span class="nav-icon">📈</span>LONG</button>
   <button class="nav-btn" onclick="showTab('short')"><span class="nav-icon">📉</span>SHORT</button>
   <button class="nav-btn" onclick="showTab('history')"><span class="nav-icon">📋</span>HISTORY</button>
+  <button class="nav-btn" onclick="showTab('stats')"><span class="nav-icon">📊</span>STATS</button>
   <button class="nav-btn" onclick="showTab('setup')"><span class="nav-icon">⚙️</span>SETUP</button>
 </nav>
 <script>
@@ -121,6 +122,72 @@ function renderCard(s){
     <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:right">${s.histConf}</div>
   </div>`;
 }
+function renderStats(){
+  const history = allData.history;
+  if(!history.length) return `<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">NO DATA YET</div><div style="font-size:12px">Stats build up after signals are checked</div></div>`;
+
+  // Group by instrument
+  const instruments = {};
+  history.forEach(r => {
+    if(!r.instrument || r.instrument.length < 2) return;
+    if(!instruments[r.instrument]) instruments[r.instrument] = {wins:0,losses:0,total:0,longWins:0,longTotal:0,shortWins:0,shortTotal:0};
+    const s = instruments[r.instrument];
+    if(r.result === 'CORRECT'){ s.wins++; s.total++; }
+    else if(r.result === 'INCORRECT'){ s.losses++; s.total++; }
+    else return; // skip pending
+    if(r.bias === 'LONG'){ s.longTotal++; if(r.result==='CORRECT') s.longWins++; }
+    else if(r.bias === 'SHORT'){ s.shortTotal++; if(r.result==='CORRECT') s.shortWins++; }
+  });
+
+  const sorted = Object.entries(instruments)
+    .filter(([,s]) => s.total > 0)
+    .sort((a,b) => (b[1].wins/b[1].total) - (a[1].wins/a[1].total));
+
+  if(!sorted.length) return `<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">NO RESULTS YET</div><div style="font-size:12px">Results get checked automatically each morning</div></div>`;
+
+  // Overall stats
+  const totalWins = sorted.reduce((a,[,s])=>a+s.wins,0);
+  const totalAll  = sorted.reduce((a,[,s])=>a+s.total,0);
+  const overallPct = totalAll > 0 ? Math.round(totalWins/totalAll*100) : 0;
+  const overallCol = overallPct>=60?'var(--green)':overallPct>=45?'var(--amber)':'var(--red)';
+
+  let h = `<div class="summary-bar">
+    <div class="summary-stat"><div class="summary-val" style="color:${overallCol}">${overallPct}%</div><div class="summary-label">WIN RATE</div></div>
+    <div class="summary-stat"><div class="summary-val" style="color:var(--green)">${totalWins}</div><div class="summary-label">WINS</div></div>
+    <div class="summary-stat"><div class="summary-val" style="color:var(--red)">${totalAll-totalWins}</div><div class="summary-label">LOSSES</div></div>
+  </div><div class="section-header">WIN RATE BY INSTRUMENT</div>`;
+
+  sorted.forEach(([name, s]) => {
+    const pct = Math.round(s.wins/s.total*100);
+    const col = pct>=60?'var(--green)':pct>=45?'var(--amber)':'var(--red)';
+    const longPct = s.longTotal>0?Math.round(s.longWins/s.longTotal*100):null;
+    const shortPct = s.shortTotal>0?Math.round(s.shortWins/s.shortTotal*100):null;
+
+    h += `<div class="signal-card" style="border-left:3px solid ${col}">
+      <div class="card-header">
+        <div class="instrument">${name}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${col}">${pct}%</div>
+      </div>
+      <div class="conf-bar"><div class="conf-fill" style="width:${pct}%;background:${col}"></div></div>
+      <div style="display:flex;gap:12px;margin-top:10px">
+        <div style="flex:1;text-align:center">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px">TOTAL</div>
+          <div style="font-size:16px">${s.wins}/${s.total}</div>
+        </div>
+        ${longPct!==null?`<div style="flex:1;text-align:center">
+          <div style="font-size:10px;color:var(--green);letter-spacing:1px">LONG</div>
+          <div style="font-size:16px;color:var(--green)">${longPct}%</div>
+        </div>`:''}
+        ${shortPct!==null?`<div style="flex:1;text-align:center">
+          <div style="font-size:10px;color:var(--red);letter-spacing:1px">SHORT</div>
+          <div style="font-size:16px;color:var(--red)">${shortPct}%</div>
+        </div>`:''}
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
 function showTab(tab){
   currentTab=tab;
   document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'));
@@ -146,6 +213,8 @@ function showTab(tab){
     const med=signals.filter(s=>parseInt(s.confidence)>=55&&parseInt(s.confidence)<70).length;
     const low=signals.filter(s=>parseInt(s.confidence)<55).length;
     c.innerHTML=`<div class="summary-bar"><div class="summary-stat"><div class="summary-val" style="color:var(--green)">${high}</div><div class="summary-label">HIGH</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--amber)">${med}</div><div class="summary-label">MODERATE</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--muted)">${low}</div><div class="summary-label">LOW</div></div></div><div class="section-header">SHORT SIGNALS</div>${signals.sort((a,b)=>parseInt(b.confidence)-parseInt(a.confidence)).map(renderCard).join('')}`;
+  }else if(tab==='stats'){
+    c.innerHTML=renderStats();
   }else if(tab==='history'){
     if(!allData.history.length){c.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">NO HISTORY YET</div><div style="font-size:12px">Signals will appear here after the bot runs</div></div>`;return;}
     // Group by date and instrument (not by row)
