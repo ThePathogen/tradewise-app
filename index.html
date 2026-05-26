@@ -73,6 +73,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Mono','Courier New',
 <nav class="nav">
   <button class="nav-btn active" onclick="showTab('long')"><span class="nav-icon">📈</span>LONG</button>
   <button class="nav-btn" onclick="showTab('short')"><span class="nav-icon">📉</span>SHORT</button>
+  <button class="nav-btn" onclick="showTab('picks')"><span class="nav-icon">🎯</span>PICKS</button>
   <button class="nav-btn" onclick="showTab('history')"><span class="nav-icon">📋</span>HISTORY</button>
   <button class="nav-btn" onclick="showTab('stats')"><span class="nav-icon">📊</span>STATS</button>
   <button class="nav-btn" onclick="showTab('setup')"><span class="nav-icon">⚙️</span>SETUP</button>
@@ -88,7 +89,7 @@ async function fetchSheet(tab,range){
 async function loadData(){
   const{sheetId,apiKey}=getCfg();if(!sheetId||!apiKey){showTab('setup');return;}
   const[sigRows,histRows]=await Promise.all([fetchSheet('Signals','A2:P200'),fetchSheet('Signal Log','A2:N500')]);
-  allData.signals=sigRows.map(r=>({instrument:r[0]||'',bias:r[1]||'',estMove:r[2]||'',startPrice:r[3]||'N/A',endPrice:r[4]||'N/A',stopLoss:r[5]||'N/A',takeProfit:r[6]||'N/A',timeframe:r[7]||'',confidence:r[8]||'50%',histConf:r[9]||'',trend:r[10]||'',rsi:r[11]||'',cot:r[12]||'',season:r[13]||'',news:r[14]||'',aiAnalysis:r[15]||''}));
+  allData.signals=sigRows.map(r=>({instrument:r[0]||'',bias:r[1]||'',estMove:r[2]||'',startPrice:r[3]||'N/A',endPrice:r[4]||'N/A',stopLoss:r[5]||'N/A',takeProfit:r[6]||'N/A',timeframe:r[7]||'',confidence:r[8]||'50%',histConf:r[9]||'',trend:r[10]||'',rsi:r[11]||'',cot:r[12]||'',season:r[13]||'',news:r[14]||'',aiAnalysis:r[15]||'',recommendation:r[16]||'',kellyStake:r[17]||'',fixedStake:r[18]||'',edge:r[19]||''}));
   allData.history=histRows.map(r=>({date:r[0]||'',instrument:r[1]||'',bias:r[2]||'',result:r[3]||'PENDING',entry:r[4]||'',sl:r[5]||'',tp:r[6]||'',conf:r[7]||''}));
   showTab(currentTab);
 }
@@ -119,6 +120,24 @@ function renderCard(s){
       <span class="pill">NEWS ${s.news}</span>
     </div>
     ${aiHtml}
+    ${s.recommendation?`<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px;border:1px solid var(--border)">
+      <div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px">RECOMMENDATION</div>
+        <div style="font-size:13px;color:${s.recommendation==='TRADE'?'var(--green)':s.recommendation==='SKIP'?'var(--red)':'var(--amber)'};font-weight:500">${s.recommendation}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px">KELLY STAKE</div>
+        <div style="font-size:13px;color:var(--green)">${s.kellyStake}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px">FIXED STAKE</div>
+        <div style="font-size:13px;color:var(--text)">${s.fixedStake}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:1px">EDGE</div>
+        <div style="font-size:13px;color:var(--amber)">${s.edge}</div>
+      </div>
+    </div>`:''}
     <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:right">${s.histConf}</div>
   </div>`;
 }
@@ -188,6 +207,68 @@ function renderStats(){
   return h;
 }
 
+function renderPicks(){
+  const signals = allData.signals;
+  if(!signals.length) return `<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">NO SIGNALS YET</div><div style="font-size:12px">Run the trading bot to generate signals</div></div>`;
+
+  // Top picks — highest confidence
+  const sorted  = [...signals].sort((a,b)=>parseInt(b.confidence)-parseInt(a.confidence));
+  const topPicks = sorted.slice(0,5);
+
+  // Suggested portfolio — uncorrelated picks
+  const groups = {
+    oil:    ["Brent Crude","Crude Oil WTI","Heating Oil"],
+    metals: ["Gold","Silver","Copper","Platinum"],
+    grains: ["Wheat","Corn"],
+    other:  ["Natural Gas","Cocoa","Lumber"],
+  };
+  const portfolio = [];
+  const usedGroups = new Set();
+  for(const s of sorted){
+    const grp = Object.entries(groups).find(([,m])=>m.includes(s.instrument))?.[0]||'other';
+    if(!usedGroups.has(grp)||grp==='other'){
+      portfolio.push(s);
+      usedGroups.add(grp);
+    }
+    if(portfolio.length>=4) break;
+  }
+
+  let h = '<div class="section-header">TOP PICKS TODAY</div>';
+  topPicks.forEach((s,i)=>{
+    const conf = parseInt(s.confidence)||0;
+    const col  = conf>=70?'var(--green)':conf>=55?'var(--amber)':'var(--red)';
+    const bc   = s.bias==='LONG'?'var(--green)':'var(--red)';
+    h+=`<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${col};border-radius:8px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+      <div><div class="instrument">${s.instrument}</div><div style="font-size:11px;color:${bc};margin-top:2px">${s.bias} · ${s.timeframe}</div></div>
+      <div style="text-align:right"><div style="font-size:22px;font-family:'Bebas Neue',sans-serif;color:${col}">${s.confidence}</div><div style="font-size:10px;color:var(--muted)">${s.histConf}</div></div>
+    </div>`;
+  });
+
+  if(portfolio.length>=2){
+    h+='<div class="section-header" style="margin-top:16px">SUGGESTED PORTFOLIO</div>';
+    h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Diversified across ${portfolio.length} uncorrelated commodities</div>`;
+    portfolio.forEach((s,i)=>{
+      const bc = s.bias==='LONG'?'var(--green)':'var(--red)';
+      const conf = parseInt(s.confidence)||0;
+      const col  = conf>=70?'var(--green)':conf>=55?'var(--amber)':'var(--red)';
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="color:var(--muted);font-size:12px">${i+1}.</span>
+          <div><div style="font-size:14px;font-weight:500">${s.instrument}</div>
+          <div style="font-size:10px;color:${bc}">${s.bias} · ${s.timeframe}</div></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;color:${col}">${s.confidence}</div>
+          <div style="font-size:10px;color:var(--green)">${s.kellyStake||''}</div>
+        </div>
+      </div>`;
+    });
+    h+='</div>';
+  }
+  return h;
+}
+
 function showTab(tab){
   currentTab=tab;
   document.querySelectorAll('.nav-btn').forEach(e=>e.classList.remove('active'));
@@ -213,6 +294,8 @@ function showTab(tab){
     const med=signals.filter(s=>parseInt(s.confidence)>=55&&parseInt(s.confidence)<70).length;
     const low=signals.filter(s=>parseInt(s.confidence)<55).length;
     c.innerHTML=`<div class="summary-bar"><div class="summary-stat"><div class="summary-val" style="color:var(--green)">${high}</div><div class="summary-label">HIGH</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--amber)">${med}</div><div class="summary-label">MODERATE</div></div><div class="summary-stat"><div class="summary-val" style="color:var(--muted)">${low}</div><div class="summary-label">LOW</div></div></div><div class="section-header">SHORT SIGNALS</div>${signals.sort((a,b)=>parseInt(b.confidence)-parseInt(a.confidence)).map(renderCard).join('')}`;
+  }else if(tab==='picks'){
+    c.innerHTML=renderPicks();
   }else if(tab==='stats'){
     c.innerHTML=renderStats();
   }else if(tab==='history'){
